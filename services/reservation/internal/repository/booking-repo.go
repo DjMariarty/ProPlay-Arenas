@@ -43,6 +43,4 @@ func (r *gormBookingRepo) GetUserReservations(userID uint) ([]models.Reservation
 	return reservations, nil
 }
 
-func (r *gormBookingRepo) Create(reservation *models.ReservationDetails) error {
-	
-}
+func (r *gormBookingRepo) Create(reservation *models.ReservationDetails) error 	
