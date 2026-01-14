@@ -30,5 +30,7 @@ func main() {
 		})
 	})
 
-	r.Run(fmt.Sprintf(":%s", config.GetEnv("PORT", "8080")))
+	if err := r.Run(fmt.Sprintf(":%s", config.GetEnv("PORT", "8080"))); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }
