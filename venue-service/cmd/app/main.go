@@ -11,9 +11,11 @@ import (
 )
 
 func main() {
-	if err := config.ConnectDB(); err != nil {
+	db, err := config.ConnectDB()
+	if err != nil {
 		log.Fatalf("ConnectDB: %v", err)
 	}
+	_ = db // DB будет использоваться в handlers/repository/services
 
 	r := gin.Default()
 

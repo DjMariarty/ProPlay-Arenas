@@ -9,10 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var DB *gorm.DB
-
-func ConnectDB() error {
-
+func ConnectDB() (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
 		GetEnv("DB_HOST", "localhost"),
@@ -25,17 +22,14 @@ func ConnectDB() error {
 
 	db, err := gorm.Open(postgres.Open(dsn))
 	if err != nil {
-		return fmt.Errorf("Ошибка при подключении к базе данных: %w", err)
+		return nil, fmt.Errorf("ошибка при подключении к базе данных: %w", err)
 	}
 
-	DB = db
-
-	// Автомиграция моделей
-	if err := DB.AutoMigrate(&models.Venue{}); err != nil {
-		return fmt.Errorf("Ошибка при миграции базы данных: %w", err)
+	if err := db.AutoMigrate(&models.Venue{}); err != nil {
+		return nil, fmt.Errorf("ошибка при миграции базы данных: %w", err)
 	}
 
-	return nil
+	return db, nil
 }
 
 func GetEnv(key, defaultValue string) string {

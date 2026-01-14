@@ -1,6 +1,8 @@
 package models
 
-import "time"
+import (
+	"gorm.io/gorm"
+)
 
 type VenueType string
 
@@ -13,13 +15,11 @@ const (
 )
 
 type Venue struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	Type      VenueType `gorm:"type:varchar(50);not null" json:"type"`
-	Owner     uint      `gorm:"not null;index" json:"owner"`
-	Status    bool      `gorm:"default:true" json:"status"`
-	HourPrice int       `gorm:"not null;check:hour_price >= 0" json:"hour_price"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	gorm.Model
+	VenueType VenueType `gorm:"column:venue_type;type:varchar(50);not null" json:"venue_type"`
+	OwnerID   uint      `gorm:"column:owner_id;not null;index" json:"owner_id"`
+	IsActive  bool      `gorm:"column:is_active;default:true" json:"is_active"`
+	HourPrice int       `gorm:"column:hour_price;not null;check:hour_price >= 0" json:"hour_price"`
 }
 
 func (Venue) TableName() string {
