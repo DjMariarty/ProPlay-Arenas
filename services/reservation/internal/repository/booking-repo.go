@@ -10,9 +10,9 @@ import (
 type BokingRepo interface {
 	List() ([]models.Reservation, error)
 	GetUserReservations(userID uint) ([]models.Reservation, error)
-	GetReservationDetails(id uint) (models.ReservationDetails, error)
-	Create(reservation models.Reservation) error
-	Update(reservation models.ReservationDetails) error
+	GetReservationDetails(id uint) (*models.ReservationDetails, error)
+	Create(reservation *models.ReservationDetails) error
+	Update(reservation *models.ReservationDetails) error
 	Delete(id uint) error
 }
 
@@ -43,4 +43,7 @@ func (r *gormBookingRepo) GetUserReservations(userID uint) ([]models.Reservation
 	return reservations, nil
 }
 
-func (r *gormBookingRepo) Create(reservation *models.ReservationDetails) error 	
+func (r *gormBookingRepo) Create(reservation *models.ReservationDetails) error {
+	result := r.db.Create(reservation)
+	return result.Error
+}
