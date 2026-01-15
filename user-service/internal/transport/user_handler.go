@@ -40,7 +40,12 @@ func (h *UserHandler) GetMe(c *gin.Context) {
 		return
 	}
 
-	userClaims := claims.(*models.Claims)
+	userClaims, ok := claims.(*models.Claims)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token claims"})
+		return
+	}
+
 	user, err := h.service.GetMe(userClaims.UserID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -57,7 +62,12 @@ func (h *UserHandler) UpdateMe(c *gin.Context) {
 		return
 	}
 
-	userClaims := claims.(*models.Claims)
+	userClaims, ok := claims.(*models.Claims)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token claims"})
+		return
+	}
+
 	var req dto.UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -80,7 +90,12 @@ func (h *UserHandler) BecomeOwner(c *gin.Context) {
 		return
 	}
 
-	userClaims := claims.(*models.Claims)
+	userClaims, ok := claims.(*models.Claims)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token claims"})
+		return
+	}
+
 	user, err := h.service.BecomeOwner(userClaims.UserID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

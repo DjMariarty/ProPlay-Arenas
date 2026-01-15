@@ -7,6 +7,7 @@ import (
 	"user-service/internal/repository"
 
 	"github.com/golang-jwt/jwt/v4"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthService struct {
@@ -46,4 +47,47 @@ func (s *AuthService) ParseToken(tokenStr string) (*models.Claims, error) {
 	}
 
 	return claims, nil
+}
+
+func (s *AuthService) RegisterUser(req models.RegisterRequest) (string, error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+
+	user := &models.User{
+		FullName: req.FullName,
+		Email:    req.Email,
+		Password: string(hashedPassword),
+		Role:     models.RoleClient,
+	}
+
+	if err := s.userRepo.Create(user); err != nil {
+		return "", err
+	}
+
+	token, err := s.GenerateToken(user)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
+func (s *AuthService) LoginUser(req models.LoginRequest) (string, error) {
+	user, err := s.userRepo.GetByEmail(req.Email)
+	if err != nil || user == nil {
+		return "", errors.New("invalid email or password")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		return "", errors.New("invalid email or password")
+	}
+
+	token, err := s.GenerateToken(user)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
 }
