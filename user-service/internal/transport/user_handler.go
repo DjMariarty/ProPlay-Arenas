@@ -29,7 +29,7 @@ func (h *UserHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		users.GET("/me", h.GetMe)
 		users.PUT("/me", h.UpdateMe)
 		users.POST("/me/become-owner", h.BecomeOwner)
-		users.GET(":id", h.GetPublicProfile)
+		users.GET("/:id", h.GetPublicProfile)
 	}
 }
 

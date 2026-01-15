@@ -29,8 +29,14 @@ func main() {
 	// Инициализация репозиториев
 	userRepo := repository.NewUserRepository(logger, db)
 
+	// Получение секретного ключа из переменных окружения
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET не задан в переменных окружения")
+	}
+
 	// Инициализация сервисов
-	authService := service.NewAuthService("your-secret-key", userRepo)
+	authService := service.NewAuthService(jwtSecret, userRepo)
 	userService := service.NewUserService(logger, userRepo)
 
 	// Инициализация обработчиков

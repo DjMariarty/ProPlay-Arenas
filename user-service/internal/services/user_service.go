@@ -7,9 +7,7 @@ import (
 	"user-service/internal/dto"
 	"user-service/internal/models"
 	"user-service/internal/repository"
-
 )
-
 
 type UserService interface {
 	GetMe(id uint) (*models.User, error)
@@ -33,64 +31,62 @@ func NewUserService(
 	}
 }
 
-
-func(s *userService)GetMe(id uint) (*models.User, error){
+func (s *userService) GetMe(id uint) (*models.User, error) {
 	user, err := s.repository.GetByID(id)
-	if err != nil{
-		return nil,err
+	if err != nil {
+		return nil, err
 	}
-	return user,nil
+	return user, nil
 }
 
-func (s *userService)UpdateMe(id uint, req dto.UpdateUserRequest) (*models.User, error){
-	user , err := s.repository.GetByID(id)
+func (s *userService) UpdateMe(id uint, req dto.UpdateUserRequest) (*models.User, error) {
+	user, err := s.repository.GetByID(id)
 
-	if err != nil{
-		return nil,err
+	if err != nil {
+		return nil, err
 	}
-	if req.FullName != nil{
+	if req.FullName != nil {
 		user.FullName = *req.FullName
 	}
-	if req.Email != nil{
+	if req.Email != nil {
 		user.Email = *req.Email
 	}
 
-	if err := s.repository.Update(user);err != nil{
-		return nil,err
+	if err := s.repository.Update(user); err != nil {
+		return nil, err
 	}
-	return user,nil
+	return user, nil
 
 }
 
-func(s *userService)BecomeOwner(id uint) (*models.User, error){
-	user ,err := s.repository.GetByID(id)
+func (s *userService) BecomeOwner(id uint) (*models.User, error) {
+	user, err := s.repository.GetByID(id)
 
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
-	if user.Role != models.RoleClient{
-		return nil,errors.New("Владельцем может стать только клиент.")
+	if user.Role != models.RoleClient {
+		return nil, errors.New("Владельцем может стать только клиент.")
 	}
-
 
 	user.Role = models.RoleOwner
 
-	if err := s.repository.Update(user);err != nil{
-		return nil,err
+	if err := s.repository.Update(user); err != nil {
+		return nil, err
 	}
-	return user,nil
+	return user, nil
 }
 
-func(s *userService)GetPublicProfile(id uint) (*models.User, error){
+func (s *userService) GetPublicProfile(id uint) (*models.User, error) {
 	user, err := s.repository.GetByID(id)
-	if err != nil{
-		return nil,err
+	if err != nil {
+		return nil, err
 	}
 
 	users := &models.User{
 		FullName: user.FullName,
-		Role: user.Role,
+		Role:     user.Role,
 	}
-	return users , nil
+	return users, nil
 }
