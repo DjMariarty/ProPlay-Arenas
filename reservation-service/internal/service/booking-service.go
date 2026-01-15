@@ -9,9 +9,10 @@ import (
 )
 
 type BookingService interface {
-		
+	
 	GetUserReservations(userID uint) ([]models.Reservation, error)
 	CreateReservation(reservation *dto.ReservationCreate) (*models.ReservationDetails, error)
+	ReservationCancel(id uint, reason string) (*models.ReservationDetails, error)
 }
 
 type bookingService struct {
@@ -91,4 +92,20 @@ func (r *bookingService) CreateReservation(reservation *dto.ReservationCreate) (
 	}
 
 	return newReservation, nil
+}
+
+func (r *bookingService) ReservationCancel(id uint, reason string) (*models.ReservationDetails, error) {
+	reservation, err := r.repo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	reservation.Status = models.Cancelled
+	reservation.ReasonForCancel = reason
+
+	if err := r.repo.Save(reservation); err != nil {
+		return nil, err
+	}
+
+	return reservation, nil
 }
