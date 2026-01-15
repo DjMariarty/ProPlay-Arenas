@@ -9,7 +9,6 @@ import (
 )
 
 type BookingService interface {
-		
 	GetUserReservations(userID uint) ([]models.Reservation, error)
 	CreateReservation(reservation *dto.ReservationCreate) (*models.ReservationDetails, error)
 }
