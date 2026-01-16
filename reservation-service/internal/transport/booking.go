@@ -20,7 +20,7 @@ func NewBookingHandler(bookingService service.BookingService) *BookingHandler {
 func (r *BookingHandler) Register(c *gin.Engine) {
 	c.POST("/booking", r.CreateReservation)
 	c.POST("/bookings/:id/cancel", r.CancelReservation)
-	c.POST("/bookings/:id", r.GetByID)
+	c.GET("/bookings/:id", r.GetByID)
 }
 
 func (r *BookingHandler) CreateReservation(c *gin.Context) {
