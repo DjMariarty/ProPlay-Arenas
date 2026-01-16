@@ -20,6 +20,7 @@ func NewBookingHandler(bookingService service.BookingService) *BookingHandler {
 func (r *BookingHandler) Register(c *gin.Engine) {
 	c.POST("/booking", r.CreateReservation)
 	c.POST("/bookings/:id/cancel", r.CancelReservation)
+	c.POST("/bookings/:id", r.GetByID)
 }
 
 func (r *BookingHandler) CreateReservation(c *gin.Context) {
@@ -74,8 +75,8 @@ func (r *BookingHandler) GetByID(c *gin.Context){
 		return
 	}
 
-	reservation, error :=  r.bookingService.GetByID(uint(id))
-	if error != nil {
+	reservation, err :=  r.bookingService.GetByID(uint(id))
+	if err != nil {
 		c.JSON(404, gin.H{
 			"error":err.Error(),
 		})

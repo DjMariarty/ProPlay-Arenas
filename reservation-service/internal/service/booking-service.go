@@ -49,7 +49,7 @@ func (r *bookingService) GetByID(id uint) (*models.ReservationDetails, error) {
 	reservation, err := r.repo.GetByID(id)
 
 	if err != nil {
-		return nil, ErrReservationNotFound
+		return nil, err
 	}
 
 	return reservation, nil
