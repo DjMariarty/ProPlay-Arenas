@@ -2,7 +2,7 @@ package transport
 
 import (
 	"reservation/internal/dto"
-	
+
 	"reservation/internal/service"
 	"strconv"
 
@@ -11,16 +11,18 @@ import (
 
 type BookingHandler struct {
 	bookingService service.BookingService
+	jwtSecret      string
 }
 
-func NewBookingHandler(bookingService service.BookingService) *BookingHandler {
-	return &BookingHandler{bookingService: bookingService}
+func NewBookingHandler(bookingService service.BookingService, jwtSecret string) *BookingHandler {
+	return &BookingHandler{bookingService: bookingService, jwtSecret: jwtSecret}
 }
 
 func (r *BookingHandler) Register(c *gin.Engine) {
-	c.POST("/booking", r.CreateReservation)
-	c.POST("/bookings/:id/cancel", r.CancelReservation)
+	c.POST("/booking",  r.CreateReservation)
+	c.POST("/bookings/:id/cancel",  r.CancelReservation)
 	c.GET("/bookings/:id", r.GetByID)
+	c.GET("/bookings", r.GetUserReservations)
 }
 
 func (r *BookingHandler) CreateReservation(c *gin.Context) {
@@ -63,7 +65,7 @@ func (r *BookingHandler) CancelReservation(c *gin.Context) {
 	c.JSON(200, reservation)
 }
 
-func (r *BookingHandler) GetByID(c *gin.Context){
+func (r *BookingHandler) GetByID(c *gin.Context) {
 	idstr := c.Param("id")
 
 	id, err := strconv.Atoi(idstr)
@@ -75,14 +77,36 @@ func (r *BookingHandler) GetByID(c *gin.Context){
 		return
 	}
 
-	reservation, err :=  r.bookingService.GetByID(uint(id))
+	reservation, err := r.bookingService.GetByID(uint(id))
 	if err != nil {
 		c.JSON(404, gin.H{
-			"error":err.Error(),
+			"error": err.Error(),
 		})
 		return
 	}
 
 	c.JSON(200, reservation)
-	
+
+}
+
+func (r *BookingHandler) GetUserReservations(c *gin.Context) {
+    // Получить user ID из контекста
+    userID, exists := c.Get("userID")
+    if !exists {
+        c.JSON(401, gin.H{"error": "unauthorized"})
+        return
+    }
+    
+    
+
+    // Используйте userID (uint) для создания резервации
+    clientID := userID.(uint)
+
+    reservation, err := r.bookingService.GetUserReservations(clientID)
+    if err != nil {
+        c.JSON(500, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(201, reservation)
 }
