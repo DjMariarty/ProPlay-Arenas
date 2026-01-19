@@ -9,8 +9,9 @@ import (
 func RegisterRoutes(
 	r *gin.Engine,
 	reservationServ service.BookingService,
+	jwtSecret string,
 ){
 	reservationHandler := NewBookingHandler(r, reservationServ)
 
-	reservationHandler.Register(r)
+	reservationHandler.Register(r, jwtSecret)
 }

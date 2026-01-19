@@ -37,8 +37,7 @@ func main() {
 
 	r := gin.Default()
 
-	bookingHandler := transport.NewBookingHandler(r, bookingServ)
-	bookingHandler.Register(r, jwtSecret)
+	transport.RegisterRoutes(r, bookingServ, jwtSecret)
 
 	// Запуск сервера
 	port := os.Getenv("PORT")
