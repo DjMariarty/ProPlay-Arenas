@@ -25,6 +25,28 @@ func ConnectDB() (*gorm.DB, error) {
 		return nil, fmt.Errorf("ошибка при подключении к базе данных: %w", err)
 	}
 
+	// Проверяем существование старой колонки type и переименовываем при необходимости
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("ошибка получения sql.DB: %w", err)
+	}
+
+	var exists bool
+	err = sqlDB.QueryRow(`
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns 
+			WHERE table_name = 'venues' AND column_name = 'type'
+		)
+	`).Scan(&exists)
+
+	if err == nil && exists {
+		// Переименовываем старую колонку type в venue_type
+		_, err = sqlDB.Exec("ALTER TABLE venues RENAME COLUMN type TO venue_type")
+		if err != nil {
+			return nil, fmt.Errorf("ошибка переименования колонки: %w", err)
+		}
+	}
+
 	if err := db.AutoMigrate(&models.Venue{}); err != nil {
 		return nil, fmt.Errorf("ошибка при миграции базы данных: %w", err)
 	}
