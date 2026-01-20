@@ -15,7 +15,7 @@ import (
 
 type BookingService interface {
 	GetUserReservations(userID uint) ([]models.Reservation, error)
-	CreateReservation(reservation *dto.ReservationCreate) (*models.ReservationDetails, error)
+	CreateReservation(reservation *dto.ReservationCreate, claims *models.Claims) (*models.ReservationDetails, error)
 	ReservationCancel(id uint, reason string) (*models.ReservationDetails, error)
 	GetByID(id uint) (*models.ReservationDetails, error)
 	ReservationUpdate(id uint, reservation *dto.ReservationUpdate) (*models.ReservationDetails, error)
@@ -41,6 +41,7 @@ var (
 	ErrStatusEmpty         = errors.New("status must be provided")
 	ErrReservationNotFound = errors.New("reservation not found")
 	ErrInvalidStatus       = errors.New("invalid reservation status")
+	ErrInvalidRole         = errors.New("вы не являетесь клиентом и не можете создать бронь")
 )
 
 func (r *bookingService) GetUserReservations(userID uint) ([]models.Reservation, error) {
@@ -63,7 +64,7 @@ func (r *bookingService) GetByID(id uint) (*models.ReservationDetails, error) {
 	return reservation, nil
 }
 
-func (r *bookingService) CreateReservation(reservation *dto.ReservationCreate) (*models.ReservationDetails, error) {
+func (r *bookingService) CreateReservation(reservation *dto.ReservationCreate, claims *models.Claims) (*models.ReservationDetails, error) {
 	if reservation.ClientID <= 0 {
 		return nil, ErrClientID
 	}
@@ -95,6 +96,12 @@ func (r *bookingService) CreateReservation(reservation *dto.ReservationCreate) (
 	if reservation.Status == "" {
 		return nil, ErrStatusEmpty
 	}
+
+	if claims.Role != models.RoleClient && claims.Role != models.RoleAdmin {
+		return nil, ErrInvalidRole
+	}
+
+	reservation.ClientID = claims.UserID
 
 	newReservation := &models.ReservationDetails{
 		ClientID: reservation.ClientID,

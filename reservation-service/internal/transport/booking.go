@@ -1,8 +1,10 @@
 package transport
 
 import (
+	"net/http"
 	"reservation/internal/dto"
 	"reservation/internal/middleware"
+	"reservation/internal/models"
 	"reservation/internal/service"
 	"strconv"
 
@@ -25,7 +27,21 @@ func (r *BookingHandler) Register(c *gin.Engine, jwtSecret string) {
 	c.PUT("/bookings/:id", r.UpdateReservation)
 }
 
+
 func (r *BookingHandler) CreateReservation(c *gin.Context) {
+	
+	claimsVal, ok := c.Get("claims")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	claims, ok := claimsVal.(*models.Claims)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid claims"})
+		return
+	}
+
 	var dto dto.ReservationCreate
 
 	if err := c.ShouldBindJSON(&dto); err != nil {
@@ -33,7 +49,8 @@ func (r *BookingHandler) CreateReservation(c *gin.Context) {
 		return
 	}
 
-	reservation, err := r.bookingService.CreateReservation(&dto)
+
+	reservation, err := r.bookingService.CreateReservation(&dto, claims)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
