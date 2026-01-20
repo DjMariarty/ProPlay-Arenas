@@ -65,7 +65,7 @@ func (r *bookingService) GetByID(id uint) (*models.ReservationDetails, error) {
 }
 
 func (r *bookingService) CreateReservation(reservation *dto.ReservationCreate, claims *models.Claims) (*models.ReservationDetails, error) {
-	
+
 	if reservation.OwnerID <= 0 {
 		return nil, ErrOwnerID
 	}
@@ -189,17 +189,25 @@ func (r *bookingService) ReservationUpdate(id uint, reservation *dto.Reservation
 		return nil, ErrEndAtEmpty
 	}
 
-	if reservation.StartAt != nil && reservation.EndAt != nil {
-		if !reservation.StartAt.Before(*reservation.EndAt) {
-			return nil, ErrStartAtAfterEndAt
-		}
+	// Определяем финальные значения для валидации (не мутируя reserv заранее)
+	finalStartAt := reserv.StartAt
+	if reservation.StartAt != nil {
+		finalStartAt = *reservation.StartAt
 	}
 
-	if reservation.StartAt != nil {
-		if reservation.StartAt.Before(time.Now()) {
-			return nil, ErrStartAtInPast
-		}
+	finalEndAt := reserv.EndAt
+	if reservation.EndAt != nil {
+		finalEndAt = *reservation.EndAt
+	}
 
+	// Проверяем, что StartAt < EndAt для итогового диапазона
+	if !finalStartAt.Before(finalEndAt) {
+		return nil, ErrStartAtAfterEndAt
+	}
+
+	// Проверяем, что finalStartAt не в прошлом (независимо от того, обновляется ли он)
+	if finalStartAt.Before(time.Now()) {
+		return nil, ErrStartAtInPast
 	}
 
 	if reservation.Price != nil && *reservation.Price <= 0 {

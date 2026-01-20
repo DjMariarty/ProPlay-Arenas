@@ -21,7 +21,7 @@ func NewBookingHandler( bookingService service.BookingService) *BookingHandler {
 
 func (r *BookingHandler) Register(c *gin.Engine, jwtSecret string) {
 	c.POST("/booking", middleware.AuthMiddleware(jwtSecret), r.CreateReservation)
-	c.POST("/bookings/:id/cancel", r.CancelReservation)
+	c.POST("/bookings/:id/cancel", middleware.AuthMiddleware(jwtSecret), r.CancelReservation)
 	c.GET("/bookings/:id", r.GetByID)
 	c.GET("/bookings", middleware.AuthMiddleware(jwtSecret), r.GetUserReservations)
 	c.PUT("/bookings/:id", middleware.AuthMiddleware(jwtSecret), r.UpdateReservation)

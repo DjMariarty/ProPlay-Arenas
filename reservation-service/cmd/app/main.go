@@ -33,16 +33,15 @@ func main() {
 	}
 
 	producer := kafka.NewProducer([]string{kafkaBrokers})
-	
+	defer func() {
 		if err := producer.Close(); err != nil {
 			log.Printf("Ошибка закрытия Kafka продюсера: %v", err)
 		}
-	
+	}()
 
 	bookingRepo := repository.NewBookingRepo(db)
 	bookingServ := service.NewBookingServ(bookingRepo, producer)
 
-	
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		log.Fatal("JWT_SECRET не задан в переменных окружения")
@@ -52,7 +51,6 @@ func main() {
 
 	transport.RegisterRoutes(r, bookingServ, jwtSecret)
 
-	
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8081"
