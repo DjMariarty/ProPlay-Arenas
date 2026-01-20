@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -40,14 +39,14 @@ func main() {
 	})
 
 	port := config.GetEnv("PORT", "8080")
-	addr := ":" + port
 	server := &http.Server{
-		Addr:    addr,
+		Addr:    ":" + port,
 		Handler: mux,
 	}
 
 	slog.Info("HTTP сервер запущен", "port", port)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("ошибка запуска HTTP сервера: %v", err)
+		slog.Error("ошибка запуска HTTP сервера", "error", err)
+		os.Exit(1)
 	}
 }

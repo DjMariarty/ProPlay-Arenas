@@ -1,4 +1,4 @@
-﻿package repository
+package repository
 
 import (
 	"errors"
@@ -46,6 +46,13 @@ func (r *PaymentRepositoryImpl) GetPaymentByID(id uint) (*models.Payment, error)
 }
 
 func (r *PaymentRepositoryImpl) GetPaymentsByUserID(userID uuid.UUID, limit, offset int) ([]models.Payment, int64, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
 	var payments []models.Payment
 	var total int64
 

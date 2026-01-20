@@ -2,7 +2,7 @@ package config
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 
 	"gorm.io/driver/postgres"
@@ -27,7 +27,8 @@ func ConnectDB() *gorm.DB {
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
-		log.Fatalf("ошибка подключения к базе данных: %v", err)
+		slog.Error("ошибка подключения к базе данных", "error", err)
+		os.Exit(1)
 	}
 
 	DB = db

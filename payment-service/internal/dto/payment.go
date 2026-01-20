@@ -13,7 +13,7 @@ type CreatePaymentRequest struct {
 	UserID    uuid.UUID            `json:"user_id" binding:"required"`
 	Amount    int64                `json:"amount" binding:"required,gt=0"`
 	Currency  string               `json:"currency" binding:"required"`
-	Method    models.PaymentMethod `json:"method" binding:"required,oneof=card cash"`
+	Method    models.PaymentMethod `json:"method" binding:"required"`
 }
 
 type PaymentResponse struct {
@@ -36,21 +36,6 @@ type PaymentHistoryResponse struct {
 	Payments []PaymentResponse `json:"payments"`
 	Total    int64             `json:"total"`
 	Count    int               `json:"count"`
-}
-
-type RefundRequest struct {
-	Amount int64  `json:"amount" binding:"required,gt=0"`
-	Reason string `json:"reason" binding:"required,min=5,max=500"`
-}
-
-type RefundResponse struct {
-	ID        uint                `json:"id"`
-	PaymentID uint                `json:"payment_id"`
-	Amount    int64               `json:"amount"`
-	Reason    string              `json:"reason"`
-	Status    models.RefundStatus `json:"status"`
-	CreatedAt time.Time           `json:"created_at"`
-	UpdatedAt time.Time           `json:"updated_at"`
 }
 
 type ErrorResponse struct {

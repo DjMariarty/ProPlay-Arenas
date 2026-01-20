@@ -14,9 +14,9 @@ const (
 
 type Refund struct {
 	gorm.Model
-	PaymentID uint         `gorm:"index"`
-	Amount    int64        `gorm:"column:amount"`
-	Reason    string       `gorm:"column:reason;type:text"`
-	Status    RefundStatus `gorm:"column:status"`
-	Payment   *Payment     `gorm:"foreignKey:PaymentID;references:ID"`
+	PaymentID uint         `gorm:"index" json:"payment_id"`
+	Amount    int64        `gorm:"column:amount" json:"amount"`
+	Reason    string       `gorm:"column:reason;type:text" json:"reason"`
+	Status    RefundStatus `gorm:"column:status" json:"status"`
+	Payment   *Payment     `gorm:"foreignKey:PaymentID;references:ID" json:"payment,omitempty"`
 }
