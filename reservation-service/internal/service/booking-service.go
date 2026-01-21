@@ -74,7 +74,8 @@ func (r *bookingService) GetVenueBookings(venueID uint, claims *models.Claims) (
 		return nil, err
 	}
 
-	if venue.OwnerID != claims.UserID {
+
+	if claims.Role != models.RoleAdmin && venue.OwnerID != claims.UserID {
 		return nil, ErrNotOwner
 	}
 
