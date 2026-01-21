@@ -121,8 +121,6 @@ func (s *venueService) Update(id uint, venue *models.Venue) error {
 	existingVenue.StartTime = venue.StartTime
 	existingVenue.EndTime = venue.EndTime
 	existingVenue.Weekdays = venue.Weekdays
-	existingVenue.ID = id
-	// CreatedAt не изменяется при Updates(), GORM его автоматически не трогает
 
 	if err := s.repository.Update(existingVenue); err != nil {
 		s.logger.Error("Ошибка обновления площадки", "id", id, "error", err)

@@ -214,9 +214,10 @@ func (h *VenueHandler) Update(c *gin.Context) {
 	// Получаем обновленную площадку для ответа
 	updatedVenue, err := h.service.GetByID(id)
 	if err != nil {
-		h.logger.Error("Ошибка получения обновленной площадки", "id", id, "error", err)
-		// Обновление прошло успешно, но не удалось получить обновленную запись
-		// Возвращаем 204 No Content вместо ошибки
+		// Нештатная ситуация: обновление прошло успешно, но запись недоступна
+		// Возможные причины: проблема с БД, soft delete, или race condition
+		h.logger.Error("Нештатная ситуация: обновление успешно, но запись недоступна", "id", id, "error", err)
+		// Возвращаем 204 No Content вместо ошибки, т.к. обновление прошло успешно
 		c.Status(http.StatusNoContent)
 		return
 	}
@@ -319,9 +320,7 @@ func (h *VenueHandler) UpdateSchedule(c *gin.Context) {
 	// Возвращаем обновленное расписание
 	updatedVenue, err := h.service.GetSchedule(id)
 	if err != nil {
-		h.logger.Error("Ошибка получения обновленного расписания", "id", id, "error", err)
-		// Обновление прошло успешно, но не удалось получить обновленную запись
-		// Возвращаем 204 No Content вместо ошибки
+		h.logger.Error("Нештатная ситуация: обновление расписания успешно, но запись недоступна", "id", id, "error", err)
 		c.Status(http.StatusNoContent)
 		return
 	}
