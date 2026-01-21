@@ -1,37 +1,40 @@
 package service
 
 import (
-	"errors"
+	"context"
+	"reservation/internal/errors"
+	"fmt"
+	"log"
 	"reservation/internal/dto"
+	"reservation/internal/kafka"
 	"reservation/internal/models"
 	"reservation/internal/repository"
+	"strings"
 	"time"
+
+	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 )
 
 type BookingService interface {
 	GetUserReservations(userID uint) ([]models.Reservation, error)
-	CreateReservation(reservation *dto.ReservationCreate) (*models.ReservationDetails, error)
+	GetVenueBookings(venueID uint, claims *models.Claims) ([]models.ReservationDetails, error)
+	CreateReservation(reservation *dto.ReservationCreate, claims *models.Claims) (*models.ReservationDetails, error)
 	ReservationCancel(id uint, reason string) (*models.ReservationDetails, error)
+	GetByID(id uint) (*models.ReservationDetails, error)
+	ReservationUpdate(id uint, reservation *dto.ReservationUpdate) (*models.ReservationDetails, error)
 }
 
 type bookingService struct {
-	repo repository.BookingRepo
+	repo     repository.BookingRepo
+	producer kafka.Producer
+	client   *resty.Client
+	venueURL string
 }
 
-func NewBookingServ(repo repository.BookingRepo) BookingService {
-	return &bookingService{repo: repo}
+func NewBookingServ(repo repository.BookingRepo, producer kafka.Producer, venueURL string) BookingService {
+	return &bookingService{repo: repo, producer: producer, client: resty.New(), venueURL: strings.TrimRight(venueURL, "/")}
 }
-
-var (
-	ErrClientID          = errors.New("client ID must be greater than zero")
-	ErrOwnerID           = errors.New("owner ID must be greater than zero")
-	ErrStartAtEmpty      = errors.New("start time must be provided")
-	ErrEndAtEmpty        = errors.New("end time must be provided")
-	ErrStartAtAfterEndAt = errors.New("start time must be before end time")
-	ErrStartAtInPast     = errors.New("start time cannot be in the past")
-	ErrNegativePrice     = errors.New("price cannot be negative and not be zero")
-	ErrStatusEmpty       = errors.New("status must be provided")
-)
 
 func (r *bookingService) GetUserReservations(userID uint) ([]models.Reservation, error) {
 	reservations, err := r.repo.GetUserReservations(userID)
@@ -43,41 +46,83 @@ func (r *bookingService) GetUserReservations(userID uint) ([]models.Reservation,
 	return reservations, nil
 }
 
-func (r *bookingService) CreateReservation(reservation *dto.ReservationCreate) (*models.ReservationDetails, error) {
-	if reservation.ClientID <= 0 {
-		return nil, ErrClientID
+func (r *bookingService) GetVenueBookings(venueID uint, claims *models.Claims) ([]models.ReservationDetails, error) {
+
+	if claims == nil {
+		return nil, errors.ErrForbidden
 	}
 
+	if claims.Role != models.RoleOwner && claims.Role != models.RoleAdmin {
+		return nil, errors.ErrForbidden
+	}
+
+	venue, err := r.GetVenue(venueID)
+	if err != nil {
+		return nil, err
+	}
+
+	if claims.Role != models.RoleAdmin && venue.OwnerID != claims.UserID {
+		return nil, errors.ErrNotOwner
+	}
+
+	bookings, err := r.repo.GetVenueBookings(venueID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return bookings, nil
+}
+
+func (r *bookingService) GetByID(id uint) (*models.ReservationDetails, error) {
+	reservation, err := r.repo.GetByID(id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return reservation, nil
+}
+
+func (r *bookingService) CreateReservation(reservation *dto.ReservationCreate, claims *models.Claims) (*models.ReservationDetails, error) {
+
 	if reservation.OwnerID <= 0 {
-		return nil, ErrOwnerID
+		return nil, errors.ErrOwnerID
 	}
 
 	if reservation.StartAt.IsZero() {
-		return nil, ErrStartAtEmpty
+		return nil, errors.ErrStartAtEmpty
 	}
 
 	if reservation.EndAt.IsZero() {
-		return nil, ErrEndAtEmpty
+		return nil, errors.ErrEndAtEmpty
 	}
 
 	if !reservation.StartAt.Before(reservation.EndAt) {
-		return nil, ErrStartAtAfterEndAt
+		return nil, errors.ErrStartAtAfterEndAt
 	}
 
 	if reservation.StartAt.Before(time.Now()) {
-		return nil, ErrStartAtInPast
+		return nil, errors.ErrStartAtInPast
 	}
 
 	if reservation.Price <= 0 {
-		return nil, ErrNegativePrice
+		return nil, errors.ErrNegativePrice
 	}
 
 	if reservation.Status == "" {
-		return nil, ErrStatusEmpty
+		return nil, errors.ErrStatusEmpty
 	}
+
+	if claims.Role != models.RoleClient && claims.Role != models.RoleAdmin {
+		return nil, errors.ErrInvalidRole
+	}
+
+	reservation.ClientID = claims.UserID
 
 	newReservation := &models.ReservationDetails{
 		ClientID: reservation.ClientID,
+		VenueID:  reservation.VenueID,
 		OwnerID:  reservation.OwnerID,
 		StartAt:  reservation.StartAt,
 		EndAt:    reservation.EndAt,
@@ -90,6 +135,24 @@ func (r *bookingService) CreateReservation(reservation *dto.ReservationCreate) (
 		return nil, err
 	}
 
+	evt := dto.BookingCreatedEvent{
+		EventID:   uuid.NewString(),
+		CreatedAt: time.Now(),
+		BookingID: newReservation.ID,
+		VenueID:   newReservation.VenueID,
+		ClientID:  newReservation.ClientID,
+		OwnerID:   newReservation.OwnerID,
+		StartAt:   newReservation.StartAt,
+		EndAt:     newReservation.EndAt,
+		Price:     newReservation.Price,
+		Status:    newReservation.Status,
+	}
+
+	if err := r.producer.PublishBookingCreated(context.Background(), evt); err != nil {
+		log.Printf("Ошибка отправки события в Kafka: %v", err)
+		return nil, fmt.Errorf("бронь создана (id=%d), но не удалось отправить событие в Kafka: %w", newReservation.ID, err)
+	}
+
 	return newReservation, nil
 }
 
@@ -100,7 +163,7 @@ func (r *bookingService) ReservationCancel(id uint, reason string) (*models.Rese
 	}
 
 	if reservation.Status == models.Cancelled || reservation.Status == models.Completed {
-		return nil, errors.New("cannot cancel reservation")
+		return nil, errors.ErrCannotCancel
 	}
 
 	reservation.Status = models.Cancelled
@@ -110,5 +173,122 @@ func (r *bookingService) ReservationCancel(id uint, reason string) (*models.Rese
 		return nil, err
 	}
 
+	evt := dto.BookingCancelledEvent{
+		EventID:   uuid.NewString(),
+		CreatedAt: time.Now(),
+		BookingID: reservation.ID,
+		Reason:    reason,
+		Status:    reservation.Status,
+	}
+
+	if err := r.producer.PublishBookingCancelled(context.Background(), evt); err != nil {
+		log.Printf("Ошибка отправки события отмены в Kafka: %v", err)
+	}
+
 	return reservation, nil
+}
+
+func (r *bookingService) ReservationUpdate(id uint, reservation *dto.ReservationUpdate) (*models.ReservationDetails, error) {
+
+	reserv, err := r.repo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if reservation.ClientID != nil && *reservation.ClientID <= 0 {
+		return nil, errors.ErrClientID
+	}
+
+	if reservation.OwnerID != nil && *reservation.OwnerID <= 0 {
+		return nil, errors.ErrOwnerID
+	}
+
+	if reservation.StartAt != nil && reservation.StartAt.IsZero() {
+		return nil, errors.ErrStartAtEmpty
+	}
+
+	if reservation.EndAt != nil && reservation.EndAt.IsZero() {
+		return nil, errors.ErrEndAtEmpty
+	}
+
+	// Определяем финальные значения для валидации (не мутируя reserv заранее)
+	finalStartAt := reserv.StartAt
+	if reservation.StartAt != nil {
+		finalStartAt = *reservation.StartAt
+	}
+
+	finalEndAt := reserv.EndAt
+	if reservation.EndAt != nil {
+		finalEndAt = *reservation.EndAt
+	}
+
+	// Проверяем, что StartAt < EndAt для итогового диапазона
+	if !finalStartAt.Before(finalEndAt) {
+		return nil, errors.ErrStartAtAfterEndAt
+	}
+
+	// Проверяем, что finalStartAt не в прошлом (независимо от того, обновляется ли он)
+	if finalStartAt.Before(time.Now()) {
+		return nil, errors.ErrStartAtInPast
+	}
+
+	if reservation.Price != nil && *reservation.Price <= 0 {
+		return nil, errors.ErrNegativePrice
+	}
+
+	if reserv.Status != models.Pending {
+		return nil, errors.ErrOnlyPendingReservations
+	}
+
+	if reservation.VenueID != nil {
+		reserv.VenueID = *reservation.VenueID
+	}
+
+	if reservation.ClientID != nil {
+		reserv.ClientID = *reservation.ClientID
+	}
+
+	if reservation.OwnerID != nil {
+		reserv.OwnerID = *reservation.OwnerID
+	}
+
+	if reservation.StartAt != nil {
+		reserv.StartAt = *reservation.StartAt
+	}
+
+	if reservation.EndAt != nil {
+		reserv.EndAt = *reservation.EndAt
+	}
+
+	if reservation.Price != nil {
+		reserv.Price = *reservation.Price
+	}
+
+	if err := r.repo.Save(reserv); err != nil {
+		return nil, err
+	}
+
+	reserv.Duration = reserv.EndAt.Sub(reserv.StartAt)
+
+	return reserv, nil
+
+}
+
+func (r *bookingService) GetVenue(id uint) (*dto.ResponsVenueServ, error) {
+
+	url := fmt.Sprintf("%s/venues/%d", r.venueURL, id)
+
+	var venue dto.ResponsVenueServ
+
+	resp, err := r.client.R().SetResult(&venue).Get(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode() != 200 {
+		return nil, fmt.Errorf("Сервер вернул ошибку: %d", resp.StatusCode())
+	}
+
+	return &venue, nil
 }
