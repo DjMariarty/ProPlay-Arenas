@@ -39,11 +39,6 @@ func (s *RefundServiceImpl) CreateRefund(paymentID uint, req *dto.RefundRequest)
 		return nil, ErrEmptyRequest
 	}
 
-	if s.db == nil {
-		s.logger.Error("DB репозитория платежей не инициализирована")
-		return nil, ErrEmptyRequest
-	}
-
 	var createdRefund *models.Refund
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
 		paymentRepo := repository.NewPaymentRepository(tx)

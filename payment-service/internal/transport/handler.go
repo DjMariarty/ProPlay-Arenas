@@ -115,8 +115,8 @@ func (h *PaymentHandler) GetPaymentsHistory(c *gin.Context) {
 		Total:    total,
 		Count:    len(payments),
 	}
-	for i, p := range payments {
-		resp.Payments[i] = *paymentToResponse(&p)
+	for i := range payments {
+		resp.Payments[i] = *paymentToResponse(&payments[i])
 	}
 
 	c.JSON(http.StatusOK, resp)
@@ -240,6 +240,7 @@ func parseLimitOffset(c *gin.Context) (int, int) {
 
 func isClientError(err error) bool {
 	return errors.Is(err, services.ErrEmptyRequest) ||
+		errors.Is(err, services.ErrInvalidMethod) ||
 		errors.Is(err, services.ErrPaymentNotComplete) ||
 		errors.Is(err, services.ErrRefundAmountExceed)
 }

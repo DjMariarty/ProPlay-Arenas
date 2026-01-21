@@ -38,6 +38,10 @@ func (s *PaymentServiceImpl) CreatePayment(req *dto.CreatePaymentRequest) (*mode
 	if req.Currency == "" {
 		req.Currency = "RUB"
 	}
+	if !models.IsValidPaymentMethod(req.Method) {
+		s.logger.Error("недопустимый метод оплаты", "method", req.Method)
+		return nil, ErrInvalidMethod
+	}
 
 	payment := &models.Payment{
 		BookingID: req.BookingID,
