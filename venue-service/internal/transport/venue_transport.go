@@ -177,29 +177,77 @@ func (h *VenueHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// PUT-семантика: требуем все поля для полного обновления записи
+	// PUT-семантика: требуем все обязательные поля для полного обновления записи
 	var dto VenueDTO
 	if err := c.ShouldBindJSON(&dto); err != nil {
 		h.logger.Error("Ошибка парсинга JSON", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("PUT требует все поля: %v", err),
+			"error": fmt.Sprintf("PUT требует все обязательные поля: %v", err),
 		})
 		return
 	}
 
-	// Валидация обязательных полей для PUT
-	// binding:"required" не работает для int/uint, проверяем вручную
-	if dto.OwnerID == 0 {
-		h.logger.Error("Отсутствует обязательное поле owner_id")
+	// Валидация всех обязательных полей для PUT
+	// binding:"required" работает для строк, но для int/uint нужна ручная проверка
+
+	// Проверка VenueType (не пустой и валидный)
+	if dto.VenueType == "" {
+		h.logger.Error("Отсутствует обязательное поле venue_type")
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "PUT требует все поля: owner_id обязателен",
+			"error": "PUT требует все поля: venue_type обязателен",
 		})
 		return
 	}
+	venueType := models.VenueType(dto.VenueType)
+	if !venueType.IsValid() {
+		h.logger.Error("Неверный тип площадки", "venue_type", dto.VenueType)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("неверный тип площадки: %s", dto.VenueType),
+		})
+		return
+	}
+
+	// Проверка OwnerID (не может быть 0)
+	if dto.OwnerID == 0 {
+		h.logger.Error("Отсутствует обязательное поле owner_id")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "PUT требует все поля: owner_id обязателен и не может быть 0",
+		})
+		return
+	}
+
+	// Проверка HourPrice (может быть 0, но не отрицательным)
 	if dto.HourPrice < 0 {
-		h.logger.Error("Некорректное значение hour_price")
+		h.logger.Error("Некорректное значение hour_price", "hour_price", dto.HourPrice)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "hour_price не может быть отрицательным",
+		})
+		return
+	}
+
+	// Проверка District (binding:"required" работает, но проверяем явно для ясности)
+	if dto.District == "" {
+		h.logger.Error("Отсутствует обязательное поле district")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "PUT требует все поля: district обязателен",
+		})
+		return
+	}
+
+	// Проверка StartTime
+	if dto.StartTime == "" {
+		h.logger.Error("Отсутствует обязательное поле start_time")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "PUT требует все поля: start_time обязателен",
+		})
+		return
+	}
+
+	// Проверка EndTime
+	if dto.EndTime == "" {
+		h.logger.Error("Отсутствует обязательное поле end_time")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "PUT требует все поля: end_time обязателен",
 		})
 		return
 	}
@@ -232,8 +280,6 @@ func (h *VenueHandler) Update(c *gin.Context) {
 	// Получаем обновленную площадку для ответа
 	updatedVenue, err := h.service.GetByID(id)
 	if err != nil {
-		// Нештатная ситуация: обновление прошло успешно, но запись недоступна при повторном запросе
-		// Возможные причины: проблема с БД, race condition, или запись была soft-deleted между обновлением и чтением
 		h.logger.Error(
 			"КРИТИЧЕСКАЯ ОШИБКА: обновление площадки успешно, но запись недоступна при повторном чтении",
 			"id", id,
@@ -344,8 +390,6 @@ func (h *VenueHandler) UpdateSchedule(c *gin.Context) {
 	// Возвращаем обновленное расписание
 	updatedVenue, err := h.service.GetSchedule(id)
 	if err != nil {
-		// Нештатная ситуация: обновление прошло успешно, но запись недоступна при повторном запросе
-		// Возможные причины: проблема с БД, race condition, или запись была soft-deleted между обновлением и чтением
 		h.logger.Error(
 			"КРИТИЧЕСКАЯ ОШИБКА: обновление расписания успешно, но запись недоступна при повторном чтении",
 			"id", id,
@@ -353,7 +397,6 @@ func (h *VenueHandler) UpdateSchedule(c *gin.Context) {
 			"severity", "critical",
 			"anomaly", true,
 		)
-		// Возвращаем 204 No Content, т.к. обновление прошло успешно, но вернуть данные не можем
 		c.Status(http.StatusNoContent)
 		return
 	}
