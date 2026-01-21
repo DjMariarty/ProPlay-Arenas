@@ -111,11 +111,21 @@ func (s *venueService) Update(id uint, venue *models.Venue) error {
 		return err
 	}
 
-	// Обновляем только переданные поля
-	venue.ID = id
-	venue.CreatedAt = existingVenue.CreatedAt
+	// Мержим переданные поля в existingVenue
+	// Репозиторий обновляет все поля явно через мапу, что позволяет обновлять поля в 0 или пустую строку
+	existingVenue.VenueType = venue.VenueType
+	existingVenue.OwnerID = venue.OwnerID
+	existingVenue.IsActive = venue.IsActive
+	existingVenue.HourPrice = venue.HourPrice
+	existingVenue.District = venue.District
+	existingVenue.StartTime = venue.StartTime
+	existingVenue.EndTime = venue.EndTime
+	existingVenue.Weekdays = venue.Weekdays
+	existingVenue.ID = id
+	// Сохраняем метаданные из существующей записи
+	existingVenue.CreatedAt = existingVenue.CreatedAt
 
-	if err := s.repository.Update(venue); err != nil {
+	if err := s.repository.Update(existingVenue); err != nil {
 		s.logger.Error("Ошибка обновления площадки", "id", id, "error", err)
 		return err
 	}

@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -82,8 +83,17 @@ func (h *VenueHandler) GetList(c *gin.Context) {
 		Limit:     query.Limit,
 	}
 
+	// Валидация VenueType
 	if query.VenueType != "" {
-		filter.VenueType = models.VenueType(query.VenueType)
+		venueType := models.VenueType(query.VenueType)
+		if !venueType.IsValid() {
+			h.logger.Error("Неверный тип площадки", "venue_type", query.VenueType)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("неверный тип площадки: %s", query.VenueType),
+			})
+			return
+		}
+		filter.VenueType = venueType
 	}
 
 	venues, err := h.service.GetList(filter)

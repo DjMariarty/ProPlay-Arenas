@@ -65,11 +65,8 @@ func (v *Venue) validateVenue() error {
 	}
 
 	// Проверка, что время начала раньше времени окончания
-	// Сравниваем только часы и минуты (игнорируем дату)
-	startTime := time.Date(0, 1, 1, v.StartTime.Hour(), v.StartTime.Minute(), v.StartTime.Second(), 0, time.UTC)
-	endTime := time.Date(0, 1, 1, v.EndTime.Hour(), v.EndTime.Minute(), v.EndTime.Second(), 0, time.UTC)
-
-	if !startTime.Before(endTime) {
+	// Тип time в БД хранит только часы/минуты/секунды, поэтому можно сравнивать напрямую
+	if !v.StartTime.Before(v.EndTime) {
 		return fmt.Errorf("время начала должно быть раньше времени окончания")
 	}
 

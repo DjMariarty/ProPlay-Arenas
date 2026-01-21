@@ -103,7 +103,26 @@ func (r *venueRepository) GetByOwnerID(ownerID uint) ([]models.Venue, error) {
 }
 
 func (r *venueRepository) Update(venue *models.Venue) error {
-	if err := r.db.Model(venue).Updates(venue).Error; err != nil {
+	// Используем мапу для явного указания полей, которые нужно обновить
+	// Это позволяет обновлять поля в 0 или пустую строку
+	updateData := map[string]interface{}{
+		"venue_type": venue.VenueType,
+		"owner_id":   venue.OwnerID,
+		"is_active":  venue.IsActive,
+		"hour_price": venue.HourPrice,
+		"district":   venue.District,
+		"start_time": venue.StartTime,
+		"end_time":   venue.EndTime,
+		"monday":     venue.Weekdays.Monday,
+		"tuesday":    venue.Weekdays.Tuesday,
+		"wednesday":  venue.Weekdays.Wednesday,
+		"thursday":   venue.Weekdays.Thursday,
+		"friday":     venue.Weekdays.Friday,
+		"saturday":   venue.Weekdays.Saturday,
+		"sunday":     venue.Weekdays.Sunday,
+	}
+
+	if err := r.db.Model(venue).Updates(updateData).Error; err != nil {
 		r.logger.Error("Ошибка обновления площадки", "id", venue.ID, "error", err)
 		return err
 	}
@@ -111,10 +130,11 @@ func (r *venueRepository) Update(venue *models.Venue) error {
 }
 
 func (r *venueRepository) Delete(id uint) error {
-	// Деактивация вместо удаления (soft delete)
-	result := r.db.Model(&models.Venue{}).Where("id = ?", id).Update("is_active", false)
+	// Используем стандартный soft delete GORM через db.Delete()
+	// GORM автоматически проставит DeletedAt
+	result := r.db.Delete(&models.Venue{}, id)
 	if result.Error != nil {
-		r.logger.Error("Ошибка деактивации площадки", "id", id, "error", result.Error)
+		r.logger.Error("Ошибка удаления площадки", "id", id, "error", result.Error)
 		return result.Error
 	}
 	if result.RowsAffected == 0 {

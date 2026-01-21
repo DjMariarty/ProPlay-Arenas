@@ -257,8 +257,9 @@ func SeedVenues(db *gorm.DB, logger *slog.Logger) error {
 func SeedVenuesForce(db *gorm.DB, logger *slog.Logger) error {
 	logger = logger.With("layer", "seed")
 
-	// Удаляем все существующие данные
-	if err := db.Exec("DELETE FROM venues").Error; err != nil {
+	// Удаляем все существующие данные включая soft-deleted записи
+	// Unscoped() позволяет удалить записи, помеченные как удаленные
+	if err := db.Unscoped().Delete(&models.Venue{}, "1 = 1").Error; err != nil {
 		return fmt.Errorf("ошибка удаления данных: %w", err)
 	}
 
