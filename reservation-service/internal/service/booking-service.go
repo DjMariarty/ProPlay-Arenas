@@ -9,6 +9,7 @@ import (
 	"reservation/internal/kafka"
 	"reservation/internal/models"
 	"reservation/internal/repository"
+	"strings"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -27,10 +28,12 @@ type BookingService interface {
 type bookingService struct {
 	repo     repository.BookingRepo
 	producer kafka.Producer
+	client   *resty.Client
+	venueURL string
 }
 
-func NewBookingServ(repo repository.BookingRepo, producer kafka.Producer) BookingService {
-	return &bookingService{repo: repo, producer: producer}
+func NewBookingServ(repo repository.BookingRepo, producer kafka.Producer, venueURL string) BookingService {
+	return &bookingService{repo: repo, producer: producer, client: resty.New(), venueURL: strings.TrimRight(venueURL, "/")}
 }
 
 var (
@@ -73,7 +76,6 @@ func (r *bookingService) GetVenueBookings(venueID uint, claims *models.Claims) (
 	if err != nil {
 		return nil, err
 	}
-
 
 	if claims.Role != models.RoleAdmin && venue.OwnerID != claims.UserID {
 		return nil, ErrNotOwner
@@ -290,12 +292,11 @@ func (r *bookingService) ReservationUpdate(id uint, reservation *dto.Reservation
 
 func (r *bookingService) GetVenue(id uint) (*dto.ResponsVenueServ, error) {
 
-	url := fmt.Sprintf("http://localhost:8081/venues/%d", id)
-	client := resty.New()
+	url := fmt.Sprintf("%s/venues/%d", r.venueURL, id)
 
 	var venue dto.ResponsVenueServ
 
-	resp, err := client.R().SetResult(&venue).Get(url)
+	resp, err := r.client.R().SetResult(&venue).Get(url)
 
 	if err != nil {
 		return nil, err
