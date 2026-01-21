@@ -1,4 +1,4 @@
-package dto
+﻿package dto
 
 import (
 	"time"
@@ -9,10 +9,10 @@ import (
 )
 
 type CreatePaymentRequest struct {
-	BookingID uuid.UUID            `json:"booking_id" binding:"required,oneof=card cash"`
-	UserID    uuid.UUID            `json:"user_id" binding:"required,oneof=card cash"`
+	BookingID uuid.UUID            `json:"booking_id" binding:"required"`
+	UserID    uuid.UUID            `json:"user_id" binding:"required"`
 	Amount    int64                `json:"amount" binding:"required,gt=0"`
-	Currency  string               `json:"currency" binding:"required,oneof=card cash"`
+	Currency  string               `json:"currency" binding:"omitempty,oneof=RUB"`
 	Method    models.PaymentMethod `json:"method" binding:"required,oneof=card cash"`
 }
 

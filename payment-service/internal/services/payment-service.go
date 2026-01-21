@@ -1,4 +1,4 @@
-package services
+﻿package services
 
 import (
 	"log/slog"
@@ -16,7 +16,6 @@ type PaymentService interface {
 	GetPaymentByID(id uint) (*models.Payment, error)
 	GetPaymentByBookingID(bookingID uuid.UUID) (*models.Payment, error)
 	GetPaymentsByUserID(userID uuid.UUID, limit, offset int) ([]models.Payment, int64, error)
-	ConfirmPayment(id uint) (*models.Payment, error)
 }
 
 type PaymentServiceImpl struct {
@@ -36,17 +35,8 @@ func (s *PaymentServiceImpl) CreatePayment(req *dto.CreatePaymentRequest) (*mode
 		s.logger.Error("пустой запрос на создание платежа")
 		return nil, ErrEmptyRequest
 	}
-	if req.Amount <= 0 {
-		s.logger.Error("некорректная сумма платежа", "amount", req.Amount)
-		return nil, ErrInvalidAmount
-	}
 	if req.Currency == "" {
-		s.logger.Error("валюта не указана")
-		return nil, ErrEmptyCurrency
-	}
-	if !models.IsValidPaymentMethod(req.Method) {
-		s.logger.Error("недопустимый метод оплаты", "method", req.Method)
-		return nil, ErrInvalidMethod
+		req.Currency = "RUB"
 	}
 
 	payment := &models.Payment{
@@ -55,8 +45,10 @@ func (s *PaymentServiceImpl) CreatePayment(req *dto.CreatePaymentRequest) (*mode
 		Amount:    req.Amount,
 		Currency:  req.Currency,
 		Method:    req.Method,
-		Status:    models.PaymentStatusPending,
+		Status:    models.PaymentStatusCompleted,
 	}
+	now := time.Now()
+	payment.PaidAt = &now
 
 	if err := s.paymentRepo.CreatePayment(payment); err != nil {
 		s.logger.Error("ошибка сохранения платежа", "error", err)
@@ -92,34 +84,4 @@ func (s *PaymentServiceImpl) GetPaymentsByUserID(userID uuid.UUID, limit, offset
 		return nil, 0, err
 	}
 	return payments, total, nil
-}
-
-func (s *PaymentServiceImpl) ConfirmPayment(id uint) (*models.Payment, error) {
-	payment, err := s.paymentRepo.GetPaymentByID(id)
-	if err != nil {
-		s.logger.Error("ошибка получения платежа для подтверждения", "payment_id", id, "error", err)
-		return nil, err
-	}
-
-	if payment.Status == models.PaymentStatusCompleted {
-		s.logger.Info("платеж уже подтвержден", "payment_id", payment.ID)
-		return payment, nil
-	}
-
-	if payment.Status != models.PaymentStatusPending {
-		s.logger.Error("платеж не в статусе pending", "payment_id", payment.ID, "status", payment.Status)
-		return nil, ErrPaymentNotPending
-	}
-
-	now := time.Now()
-	payment.Status = models.PaymentStatusCompleted
-	payment.PaidAt = &now
-
-	if err := s.paymentRepo.UpdatePayment(payment); err != nil {
-		s.logger.Error("ошибка обновления статуса платежа", "payment_id", payment.ID, "error", err)
-		return nil, err
-	}
-
-	s.logger.Info("платеж подтвержден", "payment_id", payment.ID)
-	return payment, nil
 }

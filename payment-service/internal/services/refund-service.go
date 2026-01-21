@@ -1,8 +1,10 @@
-package services
+﻿package services
 
 import (
 	"log/slog"
 	"time"
+
+	"gorm.io/gorm"
 
 	"payment-service/internal/dto"
 	"payment-service/internal/models"
@@ -19,69 +21,83 @@ type RefundServiceImpl struct {
 	refundRepo  repository.RefundRepository
 	paymentRepo repository.PaymentRepository
 	logger      *slog.Logger
+	db          *gorm.DB
 }
 
-func NewRefundService(refundRepo repository.RefundRepository, paymentRepo repository.PaymentRepository) RefundService {
+func NewRefundService(refundRepo repository.RefundRepository, paymentRepo repository.PaymentRepository, db *gorm.DB) RefundService {
 	return &RefundServiceImpl{
 		refundRepo:  refundRepo,
 		paymentRepo: paymentRepo,
 		logger:      slog.Default(),
+		db:          db,
 	}
 }
 
 func (s *RefundServiceImpl) CreateRefund(paymentID uint, req *dto.RefundRequest) (*models.Refund, error) {
 	if req == nil {
-		s.logger.Error("пустой запрос на создание возврата")
+		s.logger.Error("пустой запрос на возврат")
 		return nil, ErrEmptyRequest
 	}
-	if req.Amount <= 0 {
-		s.logger.Error("некорректная сумма возврата", "amount", req.Amount)
-		return nil, ErrInvalidAmount
+
+	if s.db == nil {
+		s.logger.Error("DB репозитория платежей не инициализирована")
+		return nil, ErrEmptyRequest
 	}
 
-	payment, err := s.paymentRepo.GetPaymentByID(paymentID)
-	if err != nil {
-		s.logger.Error("ошибка получения платежа для возврата", "payment_id", paymentID, "error", err)
+	var createdRefund *models.Refund
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		paymentRepo := repository.NewPaymentRepository(tx)
+		refundRepo := repository.NewRefundRepository(tx)
+
+		payment, err := paymentRepo.GetPaymentByID(paymentID)
+		if err != nil {
+			s.logger.Error("ошибка получения платежа для возврата", "payment_id", paymentID, "error", err)
+			return err
+		}
+
+		if payment.Status != models.PaymentStatusCompleted {
+			s.logger.Error("платеж не завершен", "payment_id", paymentID, "status", payment.Status)
+			return ErrPaymentNotComplete
+		}
+
+		available := payment.Amount - payment.RefundedAmount
+		if req.Amount > available {
+			s.logger.Error("сумма возврата превышает доступную", "payment_id", paymentID, "amount", req.Amount, "available", available)
+			return ErrRefundAmountExceed
+		}
+
+		refund := &models.Refund{
+			PaymentID: paymentID,
+			Amount:    req.Amount,
+			Reason:    req.Reason,
+			Status:    models.RefundStatusCompleted,
+		}
+
+		if err := refundRepo.CreateRefund(refund); err != nil {
+			s.logger.Error("не удалось создать возврат", "error", err)
+			return err
+		}
+
+		payment.RefundedAmount += req.Amount
+		if payment.RefundedAmount >= payment.Amount {
+			payment.Status = models.PaymentStatusRefunded
+			now := time.Now()
+			payment.RefundedAt = &now
+		}
+
+		if err := paymentRepo.UpdatePayment(payment); err != nil {
+			s.logger.Error("ошибка обновления платежа после возврата", "payment_id", payment.ID, "error", err)
+			return err
+		}
+
+		createdRefund = refund
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 
-	if payment.Status != models.PaymentStatusCompleted {
-		s.logger.Error("платеж не завершен, возврат невозможен", "payment_id", paymentID, "status", payment.Status)
-		return nil, ErrPaymentNotComplete
-	}
-
-	available := payment.Amount - payment.RefundedAmount
-	if req.Amount > available {
-		s.logger.Error("сумма возврата превышает доступную", "payment_id", paymentID, "amount", req.Amount, "available", available)
-		return nil, ErrRefundAmountExceed
-	}
-
-	refund := &models.Refund{
-		PaymentID: paymentID,
-		Amount:    req.Amount,
-		Reason:    req.Reason,
-		Status:    models.RefundStatusCompleted,
-	}
-
-	if err := s.refundRepo.CreateRefund(refund); err != nil {
-		s.logger.Error("ошибка сохранения возврата", "error", err)
-		return nil, err
-	}
-
-	payment.RefundedAmount += req.Amount
-	if payment.RefundedAmount >= payment.Amount {
-		payment.Status = models.PaymentStatusRefunded
-		now := time.Now()
-		payment.RefundedAt = &now
-	}
-
-	if err := s.paymentRepo.UpdatePayment(payment); err != nil {
-		s.logger.Error("ошибка обновления платежа при возврате", "payment_id", payment.ID, "error", err)
-		return nil, err
-	}
-
-	s.logger.Info("возврат создан", "refund_id", refund.ID, "payment_id", payment.ID)
-	return refund, nil
+	s.logger.Info("возврат создан", "refund_id", createdRefund.ID, "payment_id", paymentID)
+	return createdRefund, nil
 }
 
 func (s *RefundServiceImpl) GetRefundByID(id uint) (*models.Refund, error) {
@@ -96,7 +112,7 @@ func (s *RefundServiceImpl) GetRefundByID(id uint) (*models.Refund, error) {
 func (s *RefundServiceImpl) GetRefundsByPaymentID(paymentID uint) ([]models.Refund, error) {
 	refunds, err := s.refundRepo.GetRefundsByPaymentID(paymentID)
 	if err != nil {
-		s.logger.Error("ошибка получения возвратов по платежу", "payment_id", paymentID, "error", err)
+		s.logger.Error("ошибка получения возвратов по payment_id", "payment_id", paymentID, "error", err)
 		return nil, err
 	}
 	return refunds, nil

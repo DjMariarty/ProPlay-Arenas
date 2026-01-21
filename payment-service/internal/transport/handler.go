@@ -1,4 +1,4 @@
-package transport
+﻿package transport
 
 import (
 	"errors"
@@ -33,7 +33,7 @@ func NewPaymentHandler(paymentService services.PaymentService, refundService ser
 }
 
 func (h *PaymentHandler) RegisterRoutes(rg *gin.RouterGroup) {
-	payments := rg.Group("/payments")
+		payments := rg.Group("/payments")
 	{
 		payments.POST("", h.CreatePayment)
 		payments.GET("", h.GetPaymentsHistory)
@@ -41,7 +41,7 @@ func (h *PaymentHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		payments.POST("/:id/refund", h.CreateRefund)
 	}
 
-	bookings := rg.Group("/bookings")
+		bookings := rg.Group("/bookings")
 	{
 		bookings.GET("/:id/payment", h.GetPaymentByBookingID)
 	}
@@ -50,18 +50,18 @@ func (h *PaymentHandler) RegisterRoutes(rg *gin.RouterGroup) {
 func (h *PaymentHandler) CreatePayment(c *gin.Context) {
 	var req dto.CreatePaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, "VALIDATION_ERROR", "400", err.Error())
+		writeError(c, http.StatusBadRequest, "ОШИБКА_ВАЛИДАЦИИ", "400", err.Error())
 		return
 	}
 
 	payment, err := h.paymentService.CreatePayment(&req)
 	if err != nil {
 		if isClientError(err) {
-			writeError(c, http.StatusBadRequest, "PAYMENT_ERROR", "400", err.Error())
+			writeError(c, http.StatusBadRequest, "ОШИБКА_ПЛАТЕЖА", "400", err.Error())
 			return
 		}
-		h.logger.Error("failed to create payment", "error", err)
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "500", "internal server error")
+		h.logger.Error("не удалось создать платеж", "error", err)
+		writeError(c, http.StatusInternalServerError, "ВНУТРЕННЯЯ_ОШИБКА", "500", "внутренняя ошибка сервера")
 		return
 	}
 
@@ -71,18 +71,18 @@ func (h *PaymentHandler) CreatePayment(c *gin.Context) {
 func (h *PaymentHandler) GetPaymentByID(c *gin.Context) {
 	id, err := parseUintID(c.Param("id"))
 	if err != nil {
-		writeError(c, http.StatusBadRequest, "INVALID_ID", "400", "invalid payment id")
+		writeError(c, http.StatusBadRequest, "НЕКОРРЕКТНЫЙ_ID", "400", "некорректный id платежа")
 		return
 	}
 
 	payment, err := h.paymentService.GetPaymentByID(id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			writeError(c, http.StatusNotFound, "NOT_FOUND", "404", "payment not found")
+			writeError(c, http.StatusNotFound, "НЕ_НАЙДЕНО", "404", "платеж не найден")
 			return
 		}
-		h.logger.Error("failed to get payment by id", "error", err, "payment_id", id)
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "500", "internal server error")
+		h.logger.Error("ошибка получения платежа по id", "error", err, "payment_id", id)
+		writeError(c, http.StatusInternalServerError, "ВНУТРЕННЯЯ_ОШИБКА", "500", "внутренняя ошибка сервера")
 		return
 	}
 
@@ -92,21 +92,21 @@ func (h *PaymentHandler) GetPaymentByID(c *gin.Context) {
 func (h *PaymentHandler) GetPaymentsHistory(c *gin.Context) {
 	userIDStr := c.Query("user_id")
 	if userIDStr == "" {
-		writeError(c, http.StatusBadRequest, "MISSING_PARAM", "400", "missing user_id")
+		writeError(c, http.StatusBadRequest, "НЕТ_ПАРАМЕТРА", "400", "отсутствует user_id")
 		return
 	}
 
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
-		writeError(c, http.StatusBadRequest, "INVALID_UUID", "400", "invalid user_id")
+		writeError(c, http.StatusBadRequest, "НЕКОРРЕКТНЫЙ_UUID", "400", "некорректный user_id")
 		return
 	}
 
 	limit, offset := parseLimitOffset(c)
 	payments, total, err := h.paymentService.GetPaymentsByUserID(userID, limit, offset)
 	if err != nil {
-		h.logger.Error("failed to get payment history", "error", err, "user_id", userID)
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "500", "internal server error")
+		h.logger.Error("ошибка получения истории платежей", "error", err, "user_id", userID)
+		writeError(c, http.StatusInternalServerError, "ВНУТРЕННЯЯ_ОШИБКА", "500", "внутренняя ошибка сервера")
 		return
 	}
 
@@ -116,8 +116,7 @@ func (h *PaymentHandler) GetPaymentsHistory(c *gin.Context) {
 		Count:    len(payments),
 	}
 	for i, p := range payments {
-		payment := p
-		resp.Payments[i] = *paymentToResponse(&payment)
+		resp.Payments[i] = *paymentToResponse(&p)
 	}
 
 	c.JSON(http.StatusOK, resp)
@@ -126,28 +125,28 @@ func (h *PaymentHandler) GetPaymentsHistory(c *gin.Context) {
 func (h *PaymentHandler) CreateRefund(c *gin.Context) {
 	paymentID, err := parseUintID(c.Param("id"))
 	if err != nil {
-		writeError(c, http.StatusBadRequest, "INVALID_ID", "400", "invalid payment id")
+		writeError(c, http.StatusBadRequest, "НЕКОРРЕКТНЫЙ_ID", "400", "некорректный id платежа")
 		return
 	}
 
 	var req dto.RefundRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, "VALIDATION_ERROR", "400", err.Error())
+		writeError(c, http.StatusBadRequest, "ОШИБКА_ВАЛИДАЦИИ", "400", err.Error())
 		return
 	}
 
 	refund, err := h.refundService.CreateRefund(paymentID, &req)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			writeError(c, http.StatusNotFound, "NOT_FOUND", "404", "payment not found")
+			writeError(c, http.StatusNotFound, "НЕ_НАЙДЕНО", "404", "платеж не найден")
 			return
 		}
 		if isClientError(err) {
-			writeError(c, http.StatusBadRequest, "REFUND_ERROR", "400", err.Error())
+			writeError(c, http.StatusBadRequest, "ОШИБКА_ВОЗВРАТА", "400", err.Error())
 			return
 		}
-		h.logger.Error("failed to create refund", "error", err, "payment_id", paymentID)
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "500", "internal server error")
+		h.logger.Error("не удалось создать возврат", "error", err, "payment_id", paymentID)
+		writeError(c, http.StatusInternalServerError, "ВНУТРЕННЯЯ_ОШИБКА", "500", "внутренняя ошибка сервера")
 		return
 	}
 
@@ -157,18 +156,18 @@ func (h *PaymentHandler) CreateRefund(c *gin.Context) {
 func (h *PaymentHandler) GetPaymentByBookingID(c *gin.Context) {
 	bookingID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		writeError(c, http.StatusBadRequest, "INVALID_UUID", "400", "invalid booking id")
+		writeError(c, http.StatusBadRequest, "НЕКОРРЕКТНЫЙ_UUID", "400", "некорректный id брони")
 		return
 	}
 
 	payment, err := h.paymentService.GetPaymentByBookingID(bookingID)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			writeError(c, http.StatusNotFound, "NOT_FOUND", "404", "payment not found")
+			writeError(c, http.StatusNotFound, "НЕ_НАЙДЕНО", "404", "платеж не найден")
 			return
 		}
-		h.logger.Error("failed to get payment by booking id", "error", err, "booking_id", bookingID)
-		writeError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "500", "internal server error")
+		h.logger.Error("ошибка получения платежа по booking_id", "error", err, "booking_id", bookingID)
+		writeError(c, http.StatusInternalServerError, "ВНУТРЕННЯЯ_ОШИБКА", "500", "внутренняя ошибка сервера")
 		return
 	}
 
@@ -241,10 +240,6 @@ func parseLimitOffset(c *gin.Context) (int, int) {
 
 func isClientError(err error) bool {
 	return errors.Is(err, services.ErrEmptyRequest) ||
-		errors.Is(err, services.ErrInvalidMethod) ||
-		errors.Is(err, services.ErrInvalidAmount) ||
-		errors.Is(err, services.ErrEmptyCurrency) ||
-		errors.Is(err, services.ErrPaymentNotPending) ||
 		errors.Is(err, services.ErrPaymentNotComplete) ||
 		errors.Is(err, services.ErrRefundAmountExceed)
 }

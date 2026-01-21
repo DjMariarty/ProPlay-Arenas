@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"log/slog"
@@ -19,7 +19,7 @@ func main() {
 	slog.SetDefault(logger)
 
 	if err := godotenv.Load(); err != nil {
-		slog.Warn("could not load .env", "error", err)
+		slog.Warn("не удалось загрузить .env", "error", err)
 	}
 
 	db := config.ConnectDB()
@@ -28,24 +28,24 @@ func main() {
 		&models.Payment{},
 		&models.Refund{},
 	); err != nil {
-		slog.Error("failed to auto-migrate schema", "error", err)
+		slog.Error("ошибка миграции схемы", "error", err)
 		os.Exit(1)
 	}
 
 	paymentRepo := repository.NewPaymentRepository(db)
 	refundRepo := repository.NewRefundRepository(db)
 	paymentService := services.NewPaymentService(paymentRepo)
-	refundService := services.NewRefundService(refundRepo, paymentRepo)
+	refundService := services.NewRefundService(refundRepo, paymentRepo, db)
 	transportHandler := transport.NewPaymentHandler(paymentService, refundService, logger)
 
 	r := gin.Default()
 	api := r.Group("/")
 	transportHandler.RegisterRoutes(api)
 
-	port := config.GetEnv("PORT", "8080")
-	slog.Info("HTTP server listening", "port", port)
+	port := config.GetEnv("PORT", "8084")
+	slog.Info("HTTP сервер запущен", "port", port)
 	if err := r.Run(":" + port); err != nil {
-		slog.Error("failed to start HTTP server", "error", err)
+		slog.Error("не удалось запустить HTTP сервер", "error", err)
 		os.Exit(1)
 	}
 }
