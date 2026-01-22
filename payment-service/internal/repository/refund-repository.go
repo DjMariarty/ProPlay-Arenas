@@ -3,6 +3,7 @@
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"gorm.io/gorm"
 
@@ -18,22 +19,33 @@ type RefundRepository interface {
 
 type RefundRepositoryImpl struct {
 	db *gorm.DB
+	logger *slog.Logger
 }
 
 func NewRefundRepository(db *gorm.DB) RefundRepository {
-	return &RefundRepositoryImpl{db: db}
+	return &RefundRepositoryImpl{
+		db:     db,
+		logger: slog.Default(),
+	}
 }
 
 func (r *RefundRepositoryImpl) CreateRefund(refund *models.Refund) error {
-	return r.db.Create(refund).Error
+	if err := r.db.Create(refund).Error; err != nil {
+		r.logger.Error("ошибка создания возврата", "error", err)
+		return err
+	}
+	r.logger.Info("возврат создан", "refund_id", refund.ID)
+	return nil
 }
 
 func (r *RefundRepositoryImpl) GetRefundByID(id uint) (*models.Refund, error) {
 	var refund models.Refund
 	if err := r.db.Preload("Payment").First(&refund, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			r.logger.Warn("возврат не найден", "refund_id", id)
 			return nil, fmt.Errorf("возврат не найден: %w", ErrNotFound)
 		}
+		r.logger.Error("ошибка получения возврата по id", "refund_id", id, "error", err)
 		return nil, err
 	}
 	return &refund, nil
@@ -42,11 +54,17 @@ func (r *RefundRepositoryImpl) GetRefundByID(id uint) (*models.Refund, error) {
 func (r *RefundRepositoryImpl) GetRefundsByPaymentID(paymentID uint) ([]models.Refund, error) {
 	var refunds []models.Refund
 	if err := r.db.Where("payment_id = ?", paymentID).Order("created_at DESC").Find(&refunds).Error; err != nil {
+		r.logger.Error("ошибка получения возвратов по платежу", "payment_id", paymentID, "error", err)
 		return nil, err
 	}
 	return refunds, nil
 }
 
 func (r *RefundRepositoryImpl) UpdateRefund(refund *models.Refund) error {
-	return r.db.Save(refund).Error
+	if err := r.db.Save(refund).Error; err != nil {
+		r.logger.Error("ошибка обновления возврата", "refund_id", refund.ID, "error", err)
+		return err
+	}
+	r.logger.Info("возврат обновлен", "refund_id", refund.ID)
+	return nil
 }

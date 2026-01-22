@@ -1,4 +1,4 @@
-package dto
+﻿package dto
 
 import (
 	"time"
@@ -12,7 +12,7 @@ type CreatePaymentRequest struct {
 	BookingID uuid.UUID            `json:"booking_id" binding:"required"`
 	UserID    uuid.UUID            `json:"user_id" binding:"required"`
 	Amount    int64                `json:"amount" binding:"required,gt=0"`
-	Currency  string               `json:"currency" binding:"required"`
+	Currency  string               `json:"currency" binding:"omitempty,oneof=RUB"`
 	Method    models.PaymentMethod `json:"method" binding:"required"`
 }
 
@@ -24,7 +24,6 @@ type PaymentResponse struct {
 	Currency       string               `json:"currency"`
 	Method         models.PaymentMethod `json:"method"`
 	Status         models.PaymentStatus `json:"status"`
-	TransactionID  string               `json:"transaction_id"`
 	RefundedAmount int64                `json:"refunded_amount"`
 	PaidAt         *time.Time           `json:"paid_at"`
 	RefundedAt     *time.Time           `json:"refunded_at"`

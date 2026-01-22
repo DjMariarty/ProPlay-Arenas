@@ -1,0 +1,9 @@
+﻿package services
+
+import "errors"
+
+var (
+	ErrEmptyRequest       = errors.New("пустой запрос")
+	ErrInvalidMethod      = errors.New("недопустимый метод оплаты")
+	ErrPaymentNotComplete = errors.New("платеж не завершен")
+	ErrRefundAmountExceed = errors.New("сумма возврата превышает доступную"))

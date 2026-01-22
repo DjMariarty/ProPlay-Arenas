@@ -1,14 +1,17 @@
-package main
+﻿package main
 
 import (
 	"log/slog"
-	"net/http"
 	"os"
 
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
 	"payment-service/internal/config"
 	"payment-service/internal/models"
+	"payment-service/internal/repository"
+	"payment-service/internal/services"
+	"payment-service/internal/transport"
 )
 
 func main() {
@@ -16,7 +19,7 @@ func main() {
 	slog.SetDefault(logger)
 
 	if err := godotenv.Load(); err != nil {
-		slog.Warn("файл .env не загружен", "error", err)
+		slog.Warn("не удалось загрузить .env", "error", err)
 	}
 
 	db := config.ConnectDB()
@@ -25,28 +28,24 @@ func main() {
 		&models.Payment{},
 		&models.Refund{},
 	); err != nil {
-		slog.Error("ошибка миграции базы данных", "error", err)
+		slog.Error("ошибка миграции схемы", "error", err)
 		os.Exit(1)
 	}
 
-	slog.Info("миграция базы данных завершена")
+	paymentRepo := repository.NewPaymentRepository(db)
+	refundRepo := repository.NewRefundRepository(db)
+	paymentService := services.NewPaymentService(paymentRepo)
+	refundService := services.NewRefundService(refundRepo, paymentRepo, db)
+	transportHandler := transport.NewPaymentHandler(paymentService, refundService, logger)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok","service":"payment-service"}`))
-	})
+	r := gin.Default()
+	api := r.Group("/")
+	transportHandler.RegisterRoutes(api)
 
-	port := config.GetEnv("PORT", "8080")
-	server := &http.Server{
-		Addr:    ":" + port,
-		Handler: mux,
-	}
-
+	port := config.GetEnv("PORT", "8084")
 	slog.Info("HTTP сервер запущен", "port", port)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		slog.Error("ошибка запуска HTTP сервера", "error", err)
+	if err := r.Run(":" + port); err != nil {
+		slog.Error("не удалось запустить HTTP сервер", "error", err)
 		os.Exit(1)
 	}
 }
