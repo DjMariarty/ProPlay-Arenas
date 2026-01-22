@@ -16,7 +16,6 @@ func ConnectDatabase() *gorm.DB {
 	dbName := os.Getenv("DB_NAME")
 	dbPort := os.Getenv("DB_PORT")
 
-	fmt.Println("------------------",dbHost, dbUser, dbName, dbPort)
 
 	if dbHost == "" || dbUser == "" || dbName == "" || dbPort == "" {
 		log.Fatal("One or more required environment variables are missing: DB_HOST, DB_USER, DB_NAME, DB_PORT")

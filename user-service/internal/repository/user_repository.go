@@ -70,7 +70,7 @@ func (r *userRepository) GetByEmail(email string) (*models.User, error) {
 			slog.String("email", email),
 			slog.Any("error", err),
 		)
-		return nil, gorm.ErrRecordNotFound
+		return nil,err
 	}
 
 	r.logger.Debug("get user by email completed",

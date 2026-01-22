@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"log/slog"
@@ -31,7 +30,6 @@ func main() {
 
 	// repos & services
 	userRepo := repository.NewUserRepository(logger, db)
-	fmt.Println("1")
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		logger.Error("JWT_SECRET is not set")
