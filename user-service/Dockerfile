@@ -1,7 +1,12 @@
 FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
-RUN apk add --no-cache git
+RUN apk add --no-cache git ca-certificates
+
+# Настройка GOPROXY с fallback для обхода проблем с сетью
+ENV GOPROXY=https://proxy.golang.org,direct
+ENV GOSUMDB=sum.golang.org
+ENV CGO_ENABLED=0
 
 COPY go.mod go.sum ./
 RUN go mod download

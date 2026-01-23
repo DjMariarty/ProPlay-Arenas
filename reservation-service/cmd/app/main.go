@@ -15,10 +15,10 @@ import (
 )
 
 func main() {
-	err := godotenv.Load()
-
-	if err != nil {
-		log.Fatal(".env file not found, using system environment variables", err)
+	// Загружаем .env только для локальной разработки
+	// В Docker все переменные передаются через docker-compose.yaml
+	if err := godotenv.Load(); err != nil {
+		log.Println(".env file not found, using system environment variables")
 	}
 
 	db := config.SetUpDatabaseConnection()

@@ -49,12 +49,11 @@ func main() {
 	r.Use(gin.Recovery())
 	r.SetTrustedProxies(nil)
 
-	api := r.Group("/api")
-
-	auth := api.Group("/auth")
+	// Регистрируем маршруты без группы /api (gateway добавляет префикс)
+	auth := r.Group("/auth")
 	authHandler.RegisterRoutes(auth)
 
-	protected := api.Group("/")
+	protected := r.Group("/")
 	// protected.Use(transport.AuthMiddleware(jwtSecret))
 	userHandler.RegisterRoutes(protected)
 

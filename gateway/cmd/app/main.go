@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"log/slog"
@@ -15,8 +15,17 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
-	if err := godotenv.Load(); err != nil {
-		slog.Warn("не удалось загрузить .env", "error", err)
+	// Загружаем .env только для локальной разработки
+	// В Docker все переменные передаются через docker-compose.yaml
+	if os.Getenv("ENV") != "production" {
+		if err := godotenv.Load(); err != nil {
+			// Игнорируем ошибку, если .env файл не найден
+		}
+	}
+
+	// Устанавливаем режим Gin
+	if os.Getenv("ENV") == "production" || os.Getenv("GIN_MODE") == "release" {
+		gin.SetMode(gin.ReleaseMode)
 	}
 
 	jwtSecret := config.GetEnv("JWT_SECRET", "")

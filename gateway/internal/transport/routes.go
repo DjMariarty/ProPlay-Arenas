@@ -42,23 +42,49 @@ func RegisterRoutes(r *gin.Engine, cfg Config) error {
 	api.Any("/auth/*path", gin.WrapH(http.HandlerFunc(userUpstream.ServeHTTP)))
 	api.Any("/users/*path", gin.WrapH(http.HandlerFunc(userUpstream.ServeHTTP)))
 
-	api.Any("/venues/:id/availability", gin.WrapH(http.HandlerFunc(reservationUpstream.ServeHTTP)))
-	api.Any("/venues/:id/bookings", gin.WrapH(http.HandlerFunc(reservationUpstream.ServeHTTP)))
-
+	// Venue routes - сначала специфичные для reservation, потом общие
 	api.Any("/venues", gin.WrapH(http.HandlerFunc(venueUpstream.ServeHTTP)))
-	api.Any("/venues/*path", gin.WrapH(http.HandlerFunc(venueUpstream.ServeHTTP)))
+	
+	// Создаем специальный handler для venue маршрутов, который определяет upstream по пути
+	venueHandler := func(c *gin.Context) {
+		path := c.Request.URL.Path
+		// Если путь заканчивается на /availability или /bookings, используем reservation service
+		if strings.HasSuffix(path, "/availability") || strings.HasSuffix(path, "/bookings") {
+			reservationUpstream.ServeHTTP(c.Writer, c.Request)
+		} else {
+			// Иначе используем venue service
+			venueUpstream.ServeHTTP(c.Writer, c.Request)
+		}
+	}
+	api.Any("/venues/*path", venueHandler)
 	api.Any("/venue-types", gin.WrapH(http.HandlerFunc(venueUpstream.ServeHTTP)))
 	api.Any("/venue-types/*path", gin.WrapH(http.HandlerFunc(venueUpstream.ServeHTTP)))
 
-	api.Any("/bookings/:id/payment", gin.WrapH(http.HandlerFunc(paymentUpstream.ServeHTTP)))
-	api.Any("/payments/*path", gin.WrapH(http.HandlerFunc(paymentUpstream.ServeHTTP)))
-	api.Any("/payments", gin.WrapH(http.HandlerFunc(paymentUpstream.ServeHTTP)))
-
+	// Bookings routes - используем handler для определения upstream
 	aggregator := NewAggregator(cfg)
-	aggregator.Register(api)
-
+	
+	bookingsHandler := func(c *gin.Context) {
+		path := c.Request.URL.Path
+		
+		// Если это GET запрос к /summary, обрабатываем через aggregator
+		if c.Request.Method == http.MethodGet && strings.HasSuffix(path, "/summary") {
+			aggregator.GetBookingSummary(c)
+			return
+		}
+		
+		// Если путь заканчивается на /payment, используем payment service
+		if strings.HasSuffix(path, "/payment") {
+			paymentUpstream.ServeHTTP(c.Writer, c.Request)
+		} else {
+			// Иначе используем reservation service
+			reservationUpstream.ServeHTTP(c.Writer, c.Request)
+		}
+	}
 	api.Any("/bookings", gin.WrapH(http.HandlerFunc(reservationUpstream.ServeHTTP)))
-	api.Any("/bookings/*path", gin.WrapH(http.HandlerFunc(reservationUpstream.ServeHTTP)))
+	api.Any("/bookings/*path", bookingsHandler)
+
+	api.Any("/payments", gin.WrapH(http.HandlerFunc(paymentUpstream.ServeHTTP)))
+	api.Any("/payments/*path", gin.WrapH(http.HandlerFunc(paymentUpstream.ServeHTTP)))
 
 	return nil
 }

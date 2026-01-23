@@ -1,25 +1,253 @@
-version: '3.8'
-
 services:
+  # PostgreSQL для user-service
+  user-db:
+    image: postgres:15
+    pull_policy: if_not_present
+    container_name: user-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: user_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL для venue-service
+  venue-db:
+    image: postgres:15
+    pull_policy: if_not_present
+    container_name: venue-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: venue_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - venue_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL для payment-service
+  payment-db:
+    image: postgres:15
+    pull_policy: if_not_present
+    container_name: payment-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: payment_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - payment_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL для reservation-service
+  reservation-db:
+    image: postgres:15
+    pull_policy: if_not_present
+    container_name: reservation-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: reservation_db
+    ports:
+      - "5436:5432"
+    volumes:
+      - reservation_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Zookeeper для Kafka
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.3
+    pull_policy: if_not_present
     container_name: zookeeper
     ports:
       - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "localhost", "2181" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # Kafka
   kafka:
     image: confluentinc/cp-kafka:7.5.3
+    pull_policy: if_not_present
     container_name: kafka
     ports:
       - "9092:9092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      # Внешний доступ с хоста (Windows): localhost:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # User Service
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+      pull: false
+    container_name: user-service
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      DB_HOST: user-db
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_NAME: user_db
+      DB_PASSWORD: postgres
+      DB_SSLMODE: disable
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      ENV: production
+    depends_on:
+      user-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Venue Service
+  venue-service:
+    build:
+      context: ./venue-service
+      dockerfile: Dockerfile
+      pull: false
+    container_name: venue-service
+    ports:
+      - "8082:8082"
+    environment:
+      PORT: "8082"
+      DB_HOST: venue-db
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: venue_db
+      DB_SSLMODE: disable
+    depends_on:
+      venue-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Payment Service
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+      pull: false
+    container_name: payment-service
+    ports:
+      - "8084:8084"
+    environment:
+      PORT: "8084"
+      DB_HOST: payment-db
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_NAME: payment_db
+      DB_SSLMODE: disable
+    depends_on:
+      payment-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Reservation Service
+  reservation-service:
+    build:
+      context: ./reservation-service
+      dockerfile: Dockerfile
+      pull: false
+    container_name: reservation-service
+    ports:
+      - "8081:8081"
+    environment:
+      PORT: "8081"
+      DB_HOST: reservation-db
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: reservation_db
+      DB_SSLMODE: disable
+      KAFKA_BROKERS: kafka:9092
+      VENUE_SERVICE_URL: http://venue-service:8082
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+    depends_on:
+      reservation-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      venue-service:
+        condition: service_started
+    restart: unless-stopped
+
+  # Gateway Service
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+      pull: false
+    container_name: gateway
+    ports:
+      - "8085:8085"
+    environment:
+      PORT: "8085"
+      ENV: production
+      GIN_MODE: release
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      USER_SERVICE_URL: http://user-service:8080
+      VENUE_SERVICE_URL: http://venue-service:8082
+      RESERVATION_SERVICE_URL: http://reservation-service:8081
+      PAYMENT_SERVICE_URL: http://payment-service:8084
+    depends_on:
+      user-service:
+        condition: service_started
+      venue-service:
+        condition: service_started
+      reservation-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  user_db_data:
+  venue_db_data:
+  payment_db_data:
+  reservation_db_data:

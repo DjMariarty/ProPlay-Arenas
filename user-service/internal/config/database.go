@@ -15,18 +15,24 @@ func ConnectDatabase() *gorm.DB {
 	dbUser := os.Getenv("DB_USER")
 	dbName := os.Getenv("DB_NAME")
 	dbPort := os.Getenv("DB_PORT")
-
+	dbPassword := os.Getenv("DB_PASSWORD")
+	dbSSLMode := os.Getenv("DB_SSLMODE")
+	if dbSSLMode == "" {
+		dbSSLMode = "disable"
+	}
 
 	if dbHost == "" || dbUser == "" || dbName == "" || dbPort == "" {
 		log.Fatal("One or more required environment variables are missing: DB_HOST, DB_USER, DB_NAME, DB_PORT")
 	}
 
 	dsn := fmt.Sprintf(
-		"host=%s user=%s dbname=%s port=%s ",
+		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
 		dbHost,
 		dbUser,
+		dbPassword,
 		dbName,
 		dbPort,
+		dbSSLMode,
 	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})

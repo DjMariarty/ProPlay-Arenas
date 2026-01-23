@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sync"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	"gateway/internal/models"
 )
@@ -33,12 +33,36 @@ func NewAggregator(cfg Config) *Aggregator {
 }
 
 func (a *Aggregator) Register(rg *gin.RouterGroup) {
-	rg.GET("/bookings/:id/summary", a.GetBookingSummary)
+	// Регистрируем для всех методов, но обрабатываем только GET /summary внутри
+	rg.Any("/bookings/*path", a.GetBookingSummary)
 }
 
 func (a *Aggregator) GetBookingSummary(c *gin.Context) {
-	bookingID := c.Param("id")
-	if _, err := uuid.Parse(bookingID); err != nil {
+	// Обрабатываем только GET запросы к /summary
+	if c.Request.Method != http.MethodGet {
+		c.Next()
+		return
+	}
+
+	// Извлекаем ID из пути вида /bookings/123/summary
+	path := c.Param("path")
+	if !strings.HasSuffix(path, "/summary") {
+		// Если это не /summary, пропускаем дальше
+		c.Next()
+		return
+	}
+
+	// Убираем /summary и получаем ID
+	path = strings.TrimSuffix(path, "/summary")
+	path = strings.TrimPrefix(path, "/")
+	bookingID := path
+
+	if bookingID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "booking id is required"})
+		return
+	}
+
+	if _, err := strconv.ParseUint(bookingID, 10, 64); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid booking id"})
 		return
 	}
@@ -59,49 +83,31 @@ func (a *Aggregator) GetBookingSummary(c *gin.Context) {
 		return
 	}
 
-	type fetchResult struct {
-		body   []byte
-		status int
-		err    error
-	}
-
-	var wg sync.WaitGroup
-	var venueRes fetchResult
-	var paymentRes fetchResult
-
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		venueRes.body, venueRes.status, venueRes.err = a.fetchJSON(c, fmt.Sprintf("%s/venues/%d", a.venueURL, bookingLookup.VenueID))
-	}()
-	go func() {
-		defer wg.Done()
-		paymentRes.body, paymentRes.status, paymentRes.err = a.fetchJSON(c, fmt.Sprintf("%s/bookings/%s/payment", a.paymentURL, bookingID))
-	}()
-	wg.Wait()
+	venueBody, venueStatus, venueErr := a.fetchJSON(c, fmt.Sprintf("%s/venues/%d", a.venueURL, bookingLookup.VenueID))
+	paymentBody, paymentStatus, paymentErr := a.fetchJSON(c, fmt.Sprintf("%s/bookings/%s/payment", a.paymentURL, bookingID))
 
 	resp := models.BookingSummaryResponse{
 		Booking: bookingBody,
 	}
 
-	if venueRes.err != nil {
+	if venueErr != nil {
 		msg := "venue service unavailable"
 		resp.VenueError = &msg
-	} else if venueRes.status != http.StatusOK {
-		msg := fmt.Sprintf("venue service status %d", venueRes.status)
+	} else if venueStatus != http.StatusOK {
+		msg := fmt.Sprintf("venue service status %d", venueStatus)
 		resp.VenueError = &msg
 	} else {
-		resp.Venue = venueRes.body
+		resp.Venue = venueBody
 	}
 
-	if paymentRes.err != nil {
+	if paymentErr != nil {
 		msg := "payment service unavailable"
 		resp.PaymentError = &msg
-	} else if paymentRes.status != http.StatusOK {
-		msg := fmt.Sprintf("payment service status %d", paymentRes.status)
+	} else if paymentStatus != http.StatusOK {
+		msg := fmt.Sprintf("payment service status %d", paymentStatus)
 		resp.PaymentError = &msg
 	} else {
-		resp.Payment = paymentRes.body
+		resp.Payment = paymentBody
 	}
 
 	c.JSON(http.StatusOK, resp)

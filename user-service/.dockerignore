@@ -1,0 +1,43 @@
+# Git
+.git
+.gitignore
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Air (hot reload)
+.air.toml
+
+# Documentation
+*.md
+README.md
+
+# Makefile
+Makefile
+
+# Test files
+*_test.go
+test/
+tests/
+
+# Examples
+*.example
+.env.example
