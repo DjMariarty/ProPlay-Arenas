@@ -35,25 +35,12 @@ go mod download
 docker-compose up --build
 ```
 
-Запуск в фоновом режиме:
-
-```bash
-docker-compose up -d --build
-```
-
 ### Локальный запуск Gateway
 
 ```bash
 go run ./gateway/cmd/app/main.go
 ```
 
-## Сидирование данных
-
-Заполнение базы данных тестовыми площадками:
-
-```bash
-go run ./venue-service/cmd/seed/main.go
-```
 
 ## Доступные Make-команды (пример для reservation-service)
 
