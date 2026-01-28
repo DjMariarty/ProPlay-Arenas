@@ -1,5 +1,13 @@
 ![Banner](assets/banner.png)
 
+![Go](https://img.shields.io/badge/Go-1.21-blue?logo=go)
+![Docker](https://img.shields.io/badge/Docker-ready-blue?logo=docker)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue?logo=postgresql)
+![Redis](https://img.shields.io/badge/Redis-cache-red?logo=redis)
+![Microservices](https://img.shields.io/badge/Architecture-Microservices-purple)
+![License](https://img.shields.io/badge/License-MIT-green)
+
+
 # 🎮 Play-Arenas — сервис бронирования арен
 
 Play-Arenas — это веб-платформа для онлайн-бронирования спортивных и игровых арен.  
@@ -36,3 +44,20 @@ Go • PostgreSQL • Redis • Docker • REST / gRPC • JWT
 ```bash
 git clone https://github.com/intocode/team-4-pole
 cd team-4-pole
+```
+
+### Запуск
+```bash
+docker compose up --build
+```
+
+После сборки API Gateway будет доступен на `http://localhost:8085`.
+
+## 👥 Команда разработки
+- DjMariarty — https://github.com/DjMariarty  
+- Bay-Sangur — https://github.com/  
+-   
+- 
+- 
+
+> Проект выполнен в рамках командной разработки. Исходный репозиторий: https://github.com/intocode/team-4-pole
