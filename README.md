@@ -5,8 +5,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue?logo=postgresql)
 ![Redis](https://img.shields.io/badge/Redis-cache-red?logo=redis)
 ![Microservices](https://img.shields.io/badge/Architecture-Microservices-purple)
-![License](https://img.shields.io/badge/License-MIT-green)
-
+![JWT](https://img.shields.io/badge/Auth-JWT-orange?logo=jsonwebtokens)
 
 # 🎮 Play-Arenas — сервис бронирования арен
 
