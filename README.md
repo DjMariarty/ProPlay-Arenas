@@ -1,6 +1,6 @@
 ![Banner](assets/banner.png)
 
-![Go](https://img.shields.io/badge/Go-1.21-blue?logo=go)
+![Go](https://img.shields.io/badge/Go-1.25.5-blue?logo=go)
 ![Docker](https://img.shields.io/badge/Docker-ready-blue?logo=docker)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue?logo=postgresql)
 ![Redis](https://img.shields.io/badge/Redis-cache-red?logo=redis)
